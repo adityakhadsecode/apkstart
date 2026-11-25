@@ -983,5 +983,8 @@
   "Wi-Fi 已开启": "Wi-Fi on",
   "Windows 上的安卓应用运行器": "Android app runner for Windows",
   "Windows 搜索能搜到应用名，任务栏也按应用分组": "Windows Search can find app names, and the taskbar groups by app",
-  "Windows 原生多窗口 · 多开（实验性）": "Native Windows multi-window · multiple apps (experimental)"
+  "Windows 原生多窗口 · 多开（实验性）": "Native Windows multi-window · multiple apps (experimental)",
+  "DNS 服务器": "DNS servers",
+  "国内公共 DNS（阿里 / 腾讯）": "China public DNS (Alibaba / Tencent)",
+  "「网络加速」开启时使用。在国外或使用海外 VPN 时，选 Cloudflare 或 Google 解析更快。下次启动安卓运行时后生效。": "Used when Network acceleration is on. Outside China or with an overseas VPN, Cloudflare or Google resolve faster. Applies the next time the Android runtime starts."
 }
