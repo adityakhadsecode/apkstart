@@ -281,7 +281,7 @@ const store = {
      */
     if (existing.uiLanguage === undefined) {
       s.uiLanguage = fs.existsSync(SETTINGS_FILE) ? 'zh' : 'auto';
-    } else if (!['auto', 'zh', 'en'].includes(s.uiLanguage)) {
+    } else if (!['auto', 'zh', 'en', 'ru'].includes(s.uiLanguage)) {
       s.uiLanguage = 'zh';
     }
     /**
