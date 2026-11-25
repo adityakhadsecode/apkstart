@@ -74,7 +74,7 @@
 
     const { lead, core, trail } = splitEdge(src);
     if (!core) return;
-    const punct = (api.getLanguage && api.getLanguage() === 'en') ? translatePunctuation(core) : undefined;
+    const punct = (api.getLanguage && api.getLanguage() !== 'zh') ? translatePunctuation(core) : undefined;
     const out = punct !== undefined ? punct : api.lookup(core);
     if (out === undefined) {
       reportMissing(core);
@@ -159,7 +159,7 @@
 
   function setHtmlLang() {
     const lang = api.getLanguage ? api.getLanguage() : 'zh';
-    document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang;
   }
 
   function start() {

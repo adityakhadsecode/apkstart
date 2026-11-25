@@ -13,7 +13,11 @@
  * 语言来源优先级：APKSTART_LANG / --lang= 环境覆盖（冒烟测试用）> settings.uiLanguage
  * > 系统首选语言（zh* → 中文，其它 → 英文）。
  */
-const EN = require('../i18n/en.json');
+const DICTS = {
+  en: require('../i18n/en.json'),
+  ru: require('../i18n/ru.json'),
+};
+let DICT = DICTS.en;
 
 const CJK_RE = /[\u4e00-\u9fff]/;
 
@@ -27,19 +31,21 @@ function normalizeLang(loc) {
   if (!s) return '';
   if (s === 'zh' || s.startsWith('zh-')) return 'zh';
   if (s === 'en' || s.startsWith('en-')) return 'en';
+  if (s === 'ru' || s.startsWith('ru-')) return 'ru';
   return '';
 }
 
 /** 从系统语言列表里挑一个受支持的语言。只有 zh* 才保持中文，其余落到英文。 */
 function pickSystemLang(list) {
   for (const item of Array.isArray(list) ? list : [list]) {
-    if (normalizeLang(item) === 'zh') return 'zh';
+    const n = normalizeLang(item);
+    if (n === 'zh' || n === 'ru') return n;
   }
   return 'en';
 }
 
 /**
- * @param {string} setting 'auto' | 'zh' | 'en'
+ * @param {string} setting 'auto' | 'zh' | 'en' | 'ru'
  * @param {string[]|string} systemLanguages Electron getPreferredSystemLanguages() 的结果
  */
 function resolveLanguage(setting, systemLanguages) {
@@ -50,20 +56,23 @@ function resolveLanguage(setting, systemLanguages) {
     const n = normalizeLang(arg.slice('--lang='.length));
     if (n) return n;
   }
-  if (setting === 'zh' || setting === 'en') return setting;
+  if (setting === 'zh' || Object.prototype.hasOwnProperty.call(DICTS, setting)) return setting;
   return pickSystemLang(systemLanguages || []);
 }
 
 function setLanguage(next) {
   const n = normalizeLang(next);
   lang = n || 'zh';
+  DICT = DICTS[lang] || DICTS.en;
+  patterns = null;
+  literalKeys = null;
   patternCache.clear();
 }
 
 function getLanguage() { return lang; }
 
 /** 词典浅拷贝：preload 通过 contextBridge 暴露给渲染层时用。 */
-function dictionary() { return { ...EN }; }
+function dictionary() { return { ...DICT }; }
 
 function escapeRe(s) {
   return String(s).replace(/[.*+?^$()|[\]\\]/g, '\\$&');
@@ -84,7 +93,7 @@ function polishEnglish(s) {
     .replace(/）/g, ')')
     .replace(/。/g, '. ')
     .replace(/\b1 (notices|apps|items|minutes|hours|days|leftovers|files|cores|threads)\b/g,
-      (m, word) => '1 ' + word.replace(/s$/, ''))
+      (m, word) => (lang === 'en' ? '1 ' + word.replace(/s$/, '') : m))
     .replace(/\s+([,.;:])/g, '$1')
     .replace(/;([A-Za-z])/g, '; $1')
     .replace(/\s{2,}/g, ' ')
@@ -104,7 +113,7 @@ function normalizeKey(s) {
 function buildPatterns() {
   if (patterns) return patterns;
   patterns = [];
-  for (const key of Object.keys(EN)) {
+  for (const key of Object.keys(DICT)) {
     const norm = normalizeKey(key);
     if (!/\{[^{}]+\}/.test(norm)) continue;
     if (!CJK_RE.test(norm.replace(/\{[^{}]+\}/g, ''))) continue;
@@ -124,7 +133,7 @@ function buildPatterns() {
     src += parts[names.length];
     let re;
     try { re = new RegExp('^' + src + '$'); } catch (_) { continue; }
-    patterns.push({ re, text: EN[key], names });
+    patterns.push({ re, text: DICT[key], names });
   }
   return patterns;
 }
@@ -152,7 +161,7 @@ function matchPattern(raw, depth) {
  */
 function compose(raw, depth) {
   if (!literalKeys) {
-    literalKeys = Object.keys(EN)
+    literalKeys = Object.keys(DICT)
       .filter((k) => !/\{/.test(k) && CJK_RE.test(k) && k.length >= 2)
       .sort((a, b) => b.length - a.length);
   }
@@ -161,7 +170,7 @@ function compose(raw, depth) {
   for (const key of literalKeys) {
     const at = out.indexOf(key);
     if (at < 0) continue;
-    out = out.split(key).join(lookup(key, depth + 1) || EN[key]);
+    out = out.split(key).join(lookup(key, depth + 1) || DICT[key]);
     replaced++;
   }
   return replaced && !CJK_RE.test(out) ? out : undefined;
@@ -172,12 +181,12 @@ function compose(raw, depth) {
  * 主进程可以用 lookup() 判断「有没有译文」，渲染层用它避免无谓的 DOM 改动。
  */
 function lookup(text, depth = 0) {
-  if (lang !== 'en') return undefined;
+  if (!DICTS[lang]) return undefined;
   const raw = String(text == null ? '' : text);
   if (!raw || !CJK_RE.test(raw)) return undefined;
-  if (Object.prototype.hasOwnProperty.call(EN, raw)) return EN[raw];
+  if (Object.prototype.hasOwnProperty.call(DICT, raw)) return DICT[raw];
   const norm = normalizeKey(raw);
-  if (norm !== raw && Object.prototype.hasOwnProperty.call(EN, norm)) return EN[norm];
+  if (norm !== raw && Object.prototype.hasOwnProperty.call(DICT, norm)) return DICT[norm];
   if (patternCache.has(norm)) return patternCache.get(norm) || undefined;
   let hit = matchPattern(norm, depth) || compose(norm, depth);
   if (hit !== undefined) hit = polishEnglish(hit);
@@ -190,7 +199,7 @@ function lookup(text, depth = 0) {
  * 中文模式或没有译文时原样返回。
  */
 function t(text, vars) {
-  if (lang !== 'en') return text;
+  if (!DICTS[lang]) return text;
   const raw = String(text == null ? '' : text);
   if (!raw) return raw;
   let out = lookup(raw);
